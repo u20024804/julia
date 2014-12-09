@@ -12,7 +12,7 @@ similar(s::IntSet) = IntSet()
 
 copy(s::IntSet) = union!(IntSet(), s)
 
-eltype(s::IntSet) = Int64
+eltype(::Type{IntSet}) = Int64
 
 function sizehint!(s::IntSet, top::Integer)
     if top >= s.limit

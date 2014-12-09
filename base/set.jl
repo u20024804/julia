@@ -20,7 +20,7 @@ end
 
 isempty(s::Set) = isempty(s.dict)
 length(s::Set)  = length(s.dict)
-eltype{T}(s::Set{T}) = T
+eltype{T}(::Type{Set{T}}) = T
 
 in(x, s::Set) = haskey(s.dict, x)
 
