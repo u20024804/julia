@@ -252,3 +252,6 @@ const Uint128 = UInt128
 @deprecate squeeze(X, dims) squeeze(X, tuple(dims...))
 
 @deprecate sizehint(A, n) sizehint!(A, n)
+
+#9295
+@deprecate push!(t::Associative, key, v)  setindex!(t, v, key)
