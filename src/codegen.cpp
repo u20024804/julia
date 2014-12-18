@@ -893,7 +893,7 @@ static void coverageVisitLine(std::string filename, int line)
 
 void write_log_data(logdata_t logData, const char *extension)
 {
-    std::string base = std::string(jl_compileropts.julia_home);
+    std::string base = std::string(jl_options.julia_home);
     base = base + "/../share/julia/base/";
     logdata_t::iterator it = logData.begin();
     for (; it != logData.end(); it++) {
@@ -3194,7 +3194,7 @@ static Value *emit_expr(jl_value_t *expr, jl_codectx_t *ctx, bool isboxed,
     }
     else if (head == boundscheck_sym) {
         if (jl_array_len(ex->args) > 0 &&
-            jl_compileropts.check_bounds == JL_COMPILEROPT_CHECK_BOUNDS_DEFAULT) {
+            jl_options.check_bounds == JL_OPTIONS_CHECK_BOUNDS_DEFAULT) {
             jl_value_t *arg = args[0];
             if (arg == jl_true) {
                 ctx->boundsCheck.push_back(true);
@@ -3735,8 +3735,8 @@ static Function *emit_function(jl_lambda_info_t *lam, bool cstyle)
 
     // step 5. set up debug info context and create first basic block
     bool in_user_code = !jl_is_submodule(lam->module, jl_base_module) && !jl_is_submodule(lam->module, jl_core_module);
-    bool do_coverage = jl_compileropts.code_coverage == JL_LOG_ALL || (jl_compileropts.code_coverage == JL_LOG_USER && in_user_code);
-    bool do_malloc_log = jl_compileropts.malloc_log  == JL_LOG_ALL || (jl_compileropts.malloc_log    == JL_LOG_USER && in_user_code);
+    bool do_coverage = jl_options.code_coverage == JL_LOG_ALL || (jl_options.code_coverage == JL_LOG_USER && in_user_code);
+    bool do_malloc_log = jl_options.malloc_log  == JL_LOG_ALL || (jl_options.malloc_log    == JL_LOG_USER && in_user_code);
     jl_value_t *stmt = jl_cellref(stmts,0);
     std::string filename = "no file";
     char *dbgFuncName = lam->name->name;
@@ -4813,7 +4813,7 @@ static void init_julia_llvm_env(Module *m)
     jl_TargetMachine->addAnalysisPasses(*FPM);
 #endif
     FPM->add(createTypeBasedAliasAnalysisPass());
-    if (jl_compileropts.opt_level>=1)
+    if (jl_options.opt_level>=1)
         FPM->add(createBasicAliasAnalysisPass());
     // list of passes from vmkit
     FPM->add(createCFGSimplificationPass()); // Clean up disgusting code
@@ -4882,13 +4882,13 @@ static void init_julia_llvm_env(Module *m)
     FPM->add(createJumpThreadingPass());         // Thread jumps
     FPM->add(createDeadStoreEliminationPass());  // Delete dead stores
 #if LLVM33 && !defined(INSTCOMBINE_BUG)
-    if (jl_compileropts.opt_level>=1)
+    if (jl_options.opt_level>=1)
         FPM->add(createSLPVectorizerPass());     // Vectorize straight-line code
 #endif
 
     FPM->add(createAggressiveDCEPass());         // Delete dead instructions
 #if LLVM33 && !defined(INSTCOMBINE_BUG)
-    if (jl_compileropts.opt_level>=1)
+    if (jl_options.opt_level>=1)
         FPM->add(createInstructionCombiningPass());   // Clean up after SLP loop vectorizer
 #endif
 #if LLVM35
@@ -4905,7 +4905,7 @@ extern "C" void jl_init_codegen(void)
 #ifdef JL_DEBUG_BUILD
     cl::ParseEnvironmentOptions("Julia", "JULIA_LLVM_ARGS");
 #endif
-    imaging_mode = jl_compileropts.build_path != NULL;
+    imaging_mode = jl_options.build_path != NULL;
 
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR <= 3
     // this option disables LLVM's signal handlers
@@ -5002,9 +5002,9 @@ extern "C" void jl_init_codegen(void)
             TheTriple,
             "",
 #if LLVM35
-            strcmp(jl_compileropts.cpu_target,"native") ? jl_compileropts.cpu_target : sys::getHostCPUName().data(),
+            strcmp(jl_options.cpu_target,"native") ? jl_options.cpu_target : sys::getHostCPUName().data(),
 #else
-            strcmp(jl_compileropts.cpu_target,"native") ? jl_compileropts.cpu_target : "",
+            strcmp(jl_options.cpu_target,"native") ? jl_options.cpu_target : "",
 #endif
             MAttrs);
     assert(jl_TargetMachine);

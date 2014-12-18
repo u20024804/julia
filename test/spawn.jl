@@ -151,7 +151,7 @@ close(sock)
 
 # issue #4535
 exename=joinpath(JULIA_HOME,(ccall(:jl_is_debugbuild,Cint,())==0?"julia":"julia-debug"))
-@test readall(`$exename -f -e 'println(STDERR,"Hello World")'` .> `cat`) == "Hello World\n"
+@test readall(`$exename --startup-file=no -e 'println(STDERR,"Hello World")'` .> `cat`) == "Hello World\n"
 
 # issue #6310
 @test readall(`echo "2+2"` |> `$exename -f`) == "4\n"

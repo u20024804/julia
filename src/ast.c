@@ -140,7 +140,7 @@ void jl_init_frontend(void)
     fl_null_sym = symbol("null");
 
     // Enable / disable syntax deprecation warnings
-    jl_parse_depwarn((int)jl_compileropts.depwarn);
+    jl_parse_depwarn((int)jl_options.depwarn);
 }
 
 DLLEXPORT void jl_lisp_prompt(void)
@@ -247,9 +247,9 @@ static jl_value_t *scm_to_julia_(value_t e, int eo)
         }
         if (
 #ifdef _P64
-            jl_compileropts.int_literals==32
+            jl_options.int_literals==32
 #else
-            jl_compileropts.int_literals!=64
+            jl_options.int_literals!=64
 #endif
             ) {
             if (i64 > (int64_t)S32_MAX || i64 < (int64_t)S32_MIN)
