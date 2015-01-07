@@ -34,7 +34,7 @@
 	((atom? e) (string e))
 	((eq? (car e) '|.|)
 	 (string (deparse (cadr e)) '|.|
-		 (if (and (pair? (caddr e)) (eq? (caaddr e) 'quote))
+		 (if (and (pair? (caddr e)) (memq (caaddr e) '(quote inert)))
 		     (deparse (cadr (caddr e)))
 		     (string #\( (deparse (caddr e)) #\)))))
 	((memq (car e) '(... |'| |.'|))
@@ -434,7 +434,7 @@
   (or (symbol? e)
       (and (length= e 3) (eq? (car e) '|.|)
 	   (or (atom? (cadr e)) (sym-ref? (cadr e)))
-	   (pair? (caddr e)) (eq? (car (caddr e)) 'quote)
+	   (pair? (caddr e)) (memq (car (caddr e)) '(quote inert))
 	   (symbol? (cadr (caddr e))))))
 
 (define (method-def-expr- name sparams argl body isstaged)
@@ -467,7 +467,7 @@
 (define (ctrans? x) (and (pair? x) (eq? (car x) '|'|)))
 
 (define (const-default? x)
-  (or (number? x) (string? x) (char? x) (and (pair? x) (eq? (car x) 'quote))))
+  (or (number? x) (string? x) (char? x) (and (pair? x) (memq (car x) '(quote inert)))))
 
 (define (keywords-method-def-expr name sparams argl body isstaged)
   (let* ((kargl (cdar argl))  ;; keyword expressions (= k v)
@@ -1604,6 +1604,7 @@
 (define expand-table
   (table
    'quote identity
+   'inert identity
    'top   identity
    'line  identity
 
@@ -3236,12 +3237,14 @@ So far only the second case can actually occur.
 
 (define (expand-backquote e)
   (cond ((or (eq? e 'true) (eq? e 'false))  e)
-	((symbol? e)          `(quote ,e))
+	((symbol? e)          `(inert ,e))
 	((not (pair? e))      e)
 	((eq? (car e) '$)     (cadr e))
-	((eq? (car e) 'inert) e)
-	((and (eq? (car e) 'quote) (pair? (cadr e)))
-	 (expand-backquote (expand-backquote (cadr e))))
+	((eq? (car e) 'inert) `(inert ,e))
+	((eq? (car e) 'quote)
+	 (if (pair? (cadr e))
+	     (expand-backquote (expand-backquote (cadr e)))
+	     `(inert (inert ,(cadr e)))))
 	((not (contains (lambda (e) (and (pair? e) (eq? (car e) '$))) e))
 	 `(copyast (inert ,e)))
 	((not (any splice-expr? e))
@@ -3260,26 +3263,17 @@ So far only the second case can actually occur.
 			 (cons `(cell1d ,(expand-backquote (car p)))
 			       q))))))))
 
-(define (inert->quote e)
-  (cond ((atom? e)  e)
-	((eq? (car e) 'inert)
-	 (cons 'quote (map inert->quote (cdr e))))
-	(else  (map inert->quote e))))
-
 (define (julia-expand-macros e)
-  (inert->quote (julia-expand-macros- e)))
-
-(define (julia-expand-macros- e)
   (cond ((not (pair? e))     e)
-	((and (eq? (car e) 'quote) (pair? (cadr e)))
+	((eq? (car e) 'quote)
 	 ;; backquote is essentially a built-in macro at the moment
-	 (julia-expand-macros- (expand-backquote (cadr e))))
+	 (julia-expand-macros (expand-backquote (cadr e))))
 	((eq? (car e) 'inert)
 	 e)
 	((eq? (car e) 'macrocall)
 	 ;; expand macro
 	 (let ((form
-               (apply invoke-julia-macro (cadr e) (cddr e))))
+		(apply invoke-julia-macro (cadr e) (cddr e))))
 	   (if (not form)
 	       (error (string "macro \"" (cadr e) "\" not defined")))
 	   (if (and (pair? form) (eq? (car form) 'error))
@@ -3288,10 +3282,10 @@ So far only the second case can actually occur.
 		 (m    (cdr form)))
 	     ;; m is the macro's def module, or #f if def env === use env
 	     (rename-symbolic-labels
-           (julia-expand-macros-
-             (resolve-expansion-vars form m))))))
+	      (julia-expand-macros
+	       (resolve-expansion-vars form m))))))
 	(else
-	 (map julia-expand-macros- e))))
+	 (map julia-expand-macros e))))
 
 (define (pair-with-gensyms v)
   (map (lambda (s)
