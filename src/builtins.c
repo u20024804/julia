@@ -1154,6 +1154,7 @@ void jl_init_primitives(void)
     add_builtin("Method", (jl_value_t*)jl_method_type);
     add_builtin("MethodTable", (jl_value_t*)jl_methtable_type);
     add_builtin("Symbol", (jl_value_t*)jl_sym_type);
+    add_builtin("GenSym", (jl_value_t*)jl_gensym_type);
     add_builtin("IntrinsicFunction", (jl_value_t*)jl_intrinsic_type);
     add_builtin("Function", (jl_value_t*)jl_function_type);
     add_builtin("LambdaStaticData", (jl_value_t*)jl_lambda_info_type);
@@ -1342,6 +1343,9 @@ DLLEXPORT size_t jl_static_show(JL_STREAM *out, jl_value_t *v)
     }
     else if (jl_is_symbol(v)) {
         n += JL_PRINTF(out, ":%s", ((jl_sym_t*)v)->name);
+    }
+    else if (jl_is_gensym(v)) {
+        n += JL_PRINTF(out, "GenSym(%d)", ((jl_gensym_t*)v)->id);
     }
     else if (jl_is_symbolnode(v)) {
         n += JL_PRINTF(out, "%s::", jl_symbolnode_sym(v)->name);
