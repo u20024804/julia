@@ -68,7 +68,8 @@ close(server)
 server = listen(port)
 @async connect("localhost",port)
 s1 = accept(server)
-@test_throws ErrorException accept(server,s1)
+#TODO: should not rely on assertions for error messages
+@test_throws AssertionError accept(server,s1)
 close(server)
 
 @test_throws Base.UVError connect(".invalid",80)

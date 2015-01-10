@@ -123,6 +123,16 @@ showerror(io::IO, e::ErrorException) = print(io, e.msg)
 showerror(io::IO, e::KeyError) = (print(io, "key not found: "); show(io, e.key))
 showerror(io::IO, e::InterruptException) = print(io, "interrupt")
 
+function showerror(io::IO, ex::AssertionError)
+    if !isdefined(ex, :expr)
+        print(io, "AssertionError: ")
+    elseif !isdefined(ex, :msg)
+        print(io, "AssertionError: $(ex.expr)")
+    else
+        print(io, "AssertionError: $(ex.expr), $(ex.msg)")
+    end
+end
+
 function showerror(io::IO, e::MethodError)
     name = isgeneric(e.f) ? e.f.env.name : :anonymous
     if isa(e.f, DataType)

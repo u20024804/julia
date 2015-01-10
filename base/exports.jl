@@ -158,6 +158,7 @@ export
     ProcessExitedException,
     SystemError,
     TypeError,
+    AssertionError,
 
 # Global constants and variables
     ARGS,
