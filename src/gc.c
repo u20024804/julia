@@ -644,24 +644,35 @@ void jl_gc_setmark(jl_value_t *v)
     gc_setmark(v);
 }
 
-static void gc_mark_stack(jl_gcframe_t *s, ptrint_t offset, int d)
+static void gc_mark_stack(jl_gcframe_t *s, char *bottom, char* top, int d)
 {
     // this function assumes !_stack_grows_up
+    ptrint_t offset = (ptrint_t)top - (ptrint_t)jl_stackbase;
     while (s != NULL) {
-        s = (jl_gcframe_t*)((char*)s + ((void*)s >= jl_stackbase ? 0 : offset));
         jl_value_t ***rts = (jl_value_t***)(((void**)s)+2);
+        if ((char*)s + offset < top && (char*)s + offset >= bottom)
+            s = (jl_gcframe_t*)((char*)s + offset); // this part of the stack has been relocated
         size_t nr = s->nroots>>1;
         if (s->nroots & 1) {
             for(size_t i=0; i < nr; i++) {
-                jl_value_t **ptr = (jl_value_t**)((char*)rts[i] + ((void*)rts[i] >= jl_stackbase ? 0 : offset));
+                jl_value_t ***pptr = &rts[i];
+                if ((char*)pptr + offset < top && (char*)pptr + offset >= bottom)
+                    pptr = (jl_value_t***)((char*)pptr + offset); // this part of the stack has been relocated
+                jl_value_t **ptr = *pptr;
+                if ((char*)ptr + offset < top && (char*)ptr + offset >= bottom)
+                    ptr = (jl_value_t**)((char*)ptr + offset); // this part of the stack has been relocated
                 if (*ptr != NULL)
                     gc_push_root(*ptr, d);
             }
         }
         else {
             for(size_t i=0; i < nr; i++) {
-                if (rts[i] != NULL)
-                    gc_push_root(rts[i], d);
+                jl_value_t **ptr = (jl_value_t**)&rts[i];
+                if ((char*)ptr + offset < top && (char*)ptr + offset >= bottom)
+                    ptr = (jl_value_t**)((char*)ptr + offset); // this part of the stack has been relocated
+                if (*ptr != NULL) {
+                    gc_push_root(*ptr, d);
+                }
             }
         }
         s = s->prev;
@@ -707,14 +718,13 @@ static void gc_mark_task(jl_task_t *ta, int d)
          gc_setmark_buf(ta->stkbuf);
 #ifdef COPY_STACKS
     if (ta == jl_current_task) {
-        gc_mark_stack(jl_pgcstack, 0, d);
+        gc_mark_stack(jl_pgcstack, 0, 0, d);
     }
     else if (ta->stkbuf != NULL) {
-        ptrint_t offset = (char *)ta->stkbuf - ((char *)jl_stackbase - ta->ssize);
-        gc_mark_stack(ta->gcstack, offset, d);
+        gc_mark_stack(ta->gcstack, ta->stkbuf, ta->stkbuf + ta->ssize, d);
     }
 #else
-    if (ta->gcstack) gc_mark_stack(ta->gcstack, 0, d);
+    if (ta->gcstack) gc_mark_stack(ta->gcstack, 0, 0, d);
 #endif
 }
 
