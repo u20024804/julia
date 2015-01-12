@@ -94,7 +94,8 @@ end
 # get array of start indexes for dividing sz into nc chunks
 function defaultdist(sz::Int, nc::Int)
     if sz >= nc
-        round(Int,linspace(1, sz+1, nc+1))
+        d, r = divrem(sz, nc)
+        r == 0 ? [1:d:sz+1] : [[1:d+1:sz+1], [sz+1]]
     else
         [[1:(sz+1)], zeros(Int, nc-sz)]
     end
@@ -111,7 +112,7 @@ function chunk_idxs(dims, chunks)
     idxs, cuts
 end
 
-function localpartindex(pmap::Vector{Int})
+function localpartindex(pmap::AbstractVector{Int})
     mi = myid()
     for i = 1:length(pmap)
         if pmap[i] == mi
