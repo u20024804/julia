@@ -95,14 +95,17 @@ Build as usual, and do `make clean testall` to test your contribution. If your c
 
 ##### General Formatting Guidelines For Julia code contributions
 
- - 4 space indent
+ - 4 spaces per indentation level, no tabs
  - use whitespace to make the code more readable
  - no whitespace at the end of a line
  - comments are good, especially when they explain the algorithm
-
+ - try to adhere to a 92 character length limit
+ - use upper camel case for module and type names
+ - use lowercase with underscores for method names
+ 
 ##### General Formatting Guidelines For C code contributions
 
- - 4 space indent
+ - 4 spaces per indentation level, no tabs
  - space between if and ( (if (x) ...)
  - newline before opening { in function definitions
  - f(void) for 0-argument function declarations
