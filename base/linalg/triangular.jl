@@ -888,4 +888,3 @@ for func in (:svd, :svdfact, :svdfact!, :svdvals)
 end
 
 factorize(A::AbstractTriangular) = A
-

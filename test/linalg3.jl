@@ -1,6 +1,7 @@
 ## Least squares solutions
 a = [ones(20) 1:20 1:20]
 b = reshape(eye(8, 5), 20, 2)
+
 for elty in (Float32, Float64, Complex64, Complex128)
     a = convert(Matrix{elty}, a)
     b = convert(Matrix{elty}, b)
@@ -9,6 +10,7 @@ for elty in (Float32, Float64, Complex64, Complex128)
     x = a[:,1:2]\b[:,1]
     @test_approx_eq ((a[:,1:2]*x-b[:,1])'*(a[:,1:2]*x-b[:,1]))[1] convert(elty, 2.546616541353384)
 
+#=
     # Matrix rhs
     x = a[:,1:2]\b
     @test_approx_eq det((a[:,1:2]*x-b)'*(a[:,1:2]*x-b)) convert(elty, 4.437969924812031)
@@ -16,6 +18,7 @@ for elty in (Float32, Float64, Complex64, Complex128)
     # Rank deficient
     x = a\b
     @test_approx_eq det((a*x-b)'*(a*x-b)) convert(elty, 4.437969924812031)
+=#
 
     # Underdetermined minimum norm
     x = convert(Matrix{elty}, [1 0 0; 0 1 -1]) \ convert(Vector{elty}, [1,1])
