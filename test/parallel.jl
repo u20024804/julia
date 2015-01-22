@@ -26,7 +26,7 @@ a = convert(Matrix{Float64}, d)
 @test fetch(@spawnat id_me localpart(d)[1,1]) == d[1,1]
 @test fetch(@spawnat id_other localpart(d)[1,1]) == d[1,101]
 
-d=DArray(I->fill(myid(), map(length,I)), (10,10), [id_me, id_other])
+d = DArray(I->fill(myid(), map(length,I)), (10,10), [id_me, id_other])
 d2 = map(x->1, d)
 @test reduce(+, d2) == 100
 
@@ -34,8 +34,20 @@ d2 = map(x->1, d)
 map!(x->1, d)
 @test reduce(+, d) == 100
 
+@test mapreducedim(t -> t*t, +, d2, 1) == mapreducedim(t -> t*t, +, convert(Array, d2), 1)
+@test mapreducedim(t -> t*t, +, d2, 2) == mapreducedim(t -> t*t, +, convert(Array, d2), 2)
+@test mapreducedim(t -> t*t, +, d2, (1,2)) == mapreducedim(t -> t*t, +, convert(Array, d2), (1,2))
 
 dims = (20,20,20)
+
+d = drandn(dims)
+@test_approx_eq mapreducedim(t -> t*t, +, d, 1) mapreducedim(t -> t*t, +, convert(Array, d), 1)
+@test_approx_eq mapreducedim(t -> t*t, +, d, 2) mapreducedim(t -> t*t, +, convert(Array, d), 2)
+@test_approx_eq mapreducedim(t -> t*t, +, d, 3) mapreducedim(t -> t*t, +, convert(Array, d), 3)
+@test_approx_eq mapreducedim(t -> t*t, +, d, (1,2)) mapreducedim(t -> t*t, +, convert(Array, d), (1,2))
+@test_approx_eq mapreducedim(t -> t*t, +, d, (1,3)) mapreducedim(t -> t*t, +, convert(Array, d), (1,3))
+@test_approx_eq mapreducedim(t -> t*t, +, d, (2,3)) mapreducedim(t -> t*t, +, convert(Array, d), (2,3))
+@test_approx_eq mapreducedim(t -> t*t, +, d, (1,2,3)) mapreducedim(t -> t*t, +, convert(Array, d), (1,2,3))
 
 @linux_only begin
     S = SharedArray(Int64, dims)

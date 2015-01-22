@@ -4,7 +4,7 @@ type DArray{T,N,A} <: AbstractArray{T,N}
     chunks::Array{RemoteRef,N}
 
     # pmap[i]==p ⇒ processor p has piece i
-    pmap::Vector{Int}
+    pmap::Array{Int,N}
 
     # indexes held by piece i
     indexes::Array{NTuple{N,UnitRange{Int}},N}
@@ -16,7 +16,7 @@ type DArray{T,N,A} <: AbstractArray{T,N}
         assert(size(chunks) == size(indexes))
         assert(length(chunks) == length(pmap))
         assert(dims == map(last,last(indexes)))
-        new(dims, chunks, pmap, indexes, cuts)
+        new(dims, chunks, reshape(pmap, size(chunks)), indexes, cuts)
     end
 end
 
@@ -111,7 +111,7 @@ function chunk_idxs(dims, chunks)
     idxs, cuts
 end
 
-function localpartindex(pmap::Vector{Int})
+function localpartindex(pmap::Array{Int})
     mi = myid()
     for i = 1:length(pmap)
         if pmap[i] == mi
@@ -198,7 +198,7 @@ end
 
 function reshape{T,S<:Array}(A::DArray{T,1,S}, d::Dims)
     if prod(d) != length(A)
-        throw(DimensionMismatch("dimensions must be consistent with array size"))
+        error("dimensions must be consistent with array size")
     end
     DArray(d) do I
         sz = map(length,I)
@@ -246,7 +246,7 @@ getindex(d::DArray) = d[1]
 getindex(d::DArray, I::Union(Int,UnitRange{Int})...) = sub(d,I...)
 
 function copy!(dest::SubOrDArray, src::SubOrDArray)
-    dest.dims == src.dims && dest.pmap == src.pmap && dest.indexes == src.indexes && dest.cuts == src.cuts || throw(DimensionMismatch("destination array doesn't fit to source array"))
+    dest.dims == src.dims && dest.pmap == src.pmap && dest.indexes == src.indexes && dest.cuts == src.cuts || throw(ArgumentError("destination array doesn't fit to source array"))
     for p in dest.pmap
         @spawnat p copy!(localpart(dest), localpart(src))
     end
@@ -318,4 +318,34 @@ function map!(f::Callable, d::DArray)
         end
     end
 end
+
+function mapreducedim_within{T,N,S}(f, op, A::DArray{T,N,S}, dim)
+    arraysize = [size(A)...]
+    gridsize = [size(A.indexes)...]
+    arraysize[[dim...]] = gridsize[[dim...]]
+    DArray(tuple(arraysize...), procs(A), tuple(gridsize...)) do I
+        mapreducedim(f, op, localpart(A), dim)
+    end
+end
+
+function mapreducedim_between(f, op, A::DArray, dim)
+    arraysize = [size(A)...]
+    arraysize[[dim...]] = 1 # could be more general. This assumes usage after reducedim_within
+    procsgrid = reshape(procs(A), size(A.indexes))
+    gridsize = [size(procsgrid)...]
+    gridsize[[dim...]] = 1 # could be more general. This assumes usage after reducedim_within
+    newprocsgrid = procsgrid[UnitRange{Int}[1:n for n = gridsize]...]
+    DArray(tuple(arraysize...), newprocsgrid, gridsize) do I
+        localind = [r for r = localindexes(A)]
+        localind[[dim...]] = [1:n for n = size(A)[[dim...]]]
+        B = convert(Array, A[localind...])
+        mapreducedim(f, op, B, dim)
+    end
+end
+
+function mapreducedim(f, op, A::DArray, dim)
+    B = mapreducedim_within(f, op, A, dim)
+    return mapreducedim_between(identity, op, B, dim)
+end
+
 
