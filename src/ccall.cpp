@@ -269,41 +269,53 @@ static Value *julia_to_native(Type *ty, jl_value_t *jt, Value *jv,
             // no copy, just reference the data field
             return builder.CreateBitCast(emit_nthptr_addr(jv, (size_t)1), ty); // skip type tag field
         }
-        else if (jl_is_immutable_datatype(ety)) {
+        else if (jl_is_immutable_datatype(ety) && jt != (jl_value_t*)jl_voidpointer_type) {
             // yes copy
             Value *nbytes;
             if (jl_is_leaf_type(ety))
                 nbytes = ConstantInt::get(T_int32, jl_datatype_size(ety));
             else
-                nbytes = emit_nthptr_recast(emit_typeof(jv), offsetof(jl_datatype_t,size)/sizeof(char*), tbaa_datatype, T_int32);
+                nbytes = tbaa_decorate(tbaa_datatype, builder.CreateLoad(
+                                builder.CreateGEP(builder.CreatePointerCast(emit_typeof(jv), T_pint32),
+                                    ConstantInt::get(T_size, offsetof(jl_datatype_t,size)/4)),
+                                false));
             *needStackRestore = true;
             AllocaInst *ai = builder.CreateAlloca(T_int8, nbytes);
-            ai->setAlignment(128); //bits = 16 bytes
+            ai->setAlignment(16);
             builder.CreateMemCpy(ai, builder.CreateBitCast(emit_nthptr_addr(jv, (size_t)1), T_pint8), nbytes, 1);
             return builder.CreateBitCast(ai, ty);
         }
         // emit maybe copy
         *needStackRestore = true;
         Value *jvt = emit_typeof(jv);
-        Value *p;
         BasicBlock *mutableBB = BasicBlock::Create(getGlobalContext(),"is-mutable",ctx->f);
         BasicBlock *immutableBB = BasicBlock::Create(getGlobalContext(),"is-immutable",ctx->f);
         BasicBlock *afterBB = BasicBlock::Create(getGlobalContext(),"after",ctx->f);
-        Value *ismutable = builder.CreateTrunc(emit_nthptr_recast(
-                    jvt, offsetof(jl_datatype_t,mutabl)/sizeof(char*), tbaa_datatype, T_int8), T_int1);
+        Value *ismutable = builder.CreateTrunc(
+                tbaa_decorate(tbaa_datatype, builder.CreateLoad(
+                        builder.CreateGEP(builder.CreatePointerCast(jvt, T_pint8),
+                            ConstantInt::get(T_size, offsetof(jl_datatype_t,mutabl))),
+                        false)),
+                T_int1);
         builder.CreateCondBr(ismutable, mutableBB, immutableBB);
         builder.SetInsertPoint(mutableBB);
-        p = builder.CreateBitCast(emit_nthptr_addr(jv, (size_t)1), ty); // skip type tag field
+        Value *p1 = builder.CreatePointerCast(emit_nthptr_addr(jv, (size_t)1), ty); // skip type tag field
         builder.CreateBr(afterBB);
         builder.SetInsertPoint(immutableBB);
-        Value *nbytes = emit_nthptr_recast(jvt, offsetof(jl_datatype_t,size)/sizeof(char*), tbaa_datatype, T_int32);
+        Value *nbytes = tbaa_decorate(tbaa_datatype, builder.CreateLoad(
+                    builder.CreateGEP(builder.CreatePointerCast(jvt, T_pint32),
+                        ConstantInt::get(T_size, offsetof(jl_datatype_t,size)/4)),
+                    false));
         AllocaInst *ai = builder.CreateAlloca(T_int8, nbytes);
-        ai->setAlignment(128); //bits = 16 bytes
-        builder.CreateMemCpy(ai, builder.CreateBitCast(emit_nthptr_addr(jv, (size_t)1), T_pint8), nbytes, 1);
-        p = ai;
+        ai->setAlignment(16);
+        builder.CreateMemCpy(ai, builder.CreatePointerCast(emit_nthptr_addr(jv, (size_t)1), T_pint8), nbytes, 1);
+        Value *p2 = builder.CreatePointerCast(ai, ty);
         builder.CreateBr(afterBB);
         builder.SetInsertPoint(afterBB);
-        return builder.CreateBitCast(p, ty);
+        PHINode *p = builder.CreatePHI(ty, 2);
+        p->addIncoming(p1, mutableBB);
+        p->addIncoming(p2, immutableBB);
+        return p;
     }
     if (addressOf)
         jl_error("ccall: unexpected & on argument"); // the only "safe" thing to emit here is the expected struct

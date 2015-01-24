@@ -4030,7 +4030,7 @@ static Function *emit_function(jl_lambda_info_t *lam, bool cstyle)
                 builder.CreateAlloca(T_int8,
                                      ConstantInt::get(T_int32,
                                                       sizeof(jl_handler_t)));
-            handlr->setAlignment(128); // bits == 16 bytes
+            handlr->setAlignment(16);
             handlers[labl] = handlr;
         }
     }
