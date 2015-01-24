@@ -53,15 +53,24 @@ cnvt_all(T) = ()
 cnvt_all(T, x, rest...) = tuple(convert(T,x), cnvt_all(T, rest...)...)
 
 
+ptr_arg_cconvert{T}(::Type{Ptr{T}}, x) = cconvert(T, x)
 ptr_arg_convert{T}(::Type{Ptr{T}}, x) = convert(T, x)
 ptr_arg_convert(::Type{Ptr{Void}}, x) = x
 
 # conversion used by ccall
-cconvert(T, x) = convert(T, x)
-# use the code in ccall.cpp to safely allocate temporary pointer arrays
-cconvert{T}(::Type{Ptr{Ptr{T}}}, a::Array) = a
+cconvert(T, x) = x
 # convert strings to ByteString to pass as pointers
-cconvert{P<:Union(Int8,UInt8)}(::Type{Ptr{P}}, s::AbstractString) = bytestring(s)
+cconvert(::Union(Type{Ptr{UInt8}},Type{Ptr{Int8}}), s::AbstractString) = bytestring(s)
+# convert Arrays to pointer arrays
+cconvert{P<:Ptr}(::Type{Ptr{P}}, a::Array{P}) = a
+function cconvert{P<:Ptr}(::Type{Ptr{P}}, a::Array)
+    ptrs = Array(P, length(a)+1)
+    for i = 1:length(a)
+        ptrs[i] = convert(P, a[i])
+    end
+    ptrs[length(a)+1] = C_NULL
+    return ptrs
+end
 
 reinterpret{T,S}(::Type{T}, x::S) = box(T,unbox(S,x))
 
